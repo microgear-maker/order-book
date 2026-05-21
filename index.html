@@ -39,8 +39,19 @@
   .book-header div:nth-child(2) { text-align: center; }
   .book-header div:last-child { text-align: right; }
 
-  .asks-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-  .bids-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .asks-wrap { flex: 1; overflow-y: scroll; display: flex; flex-direction: column; justify-content: flex-end; scroll-behavior: smooth; }
+  .bids-wrap { flex: 1; overflow-y: scroll; display: flex; flex-direction: column; scroll-behavior: smooth; }
+
+  /* скрыть скроллбар визуально но оставить функцию */
+  .asks-wrap::-webkit-scrollbar, .bids-wrap::-webkit-scrollbar { width: 4px; }
+  .asks-wrap::-webkit-scrollbar-track, .bids-wrap::-webkit-scrollbar-track { background: transparent; }
+  .asks-wrap::-webkit-scrollbar-thumb, .bids-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .asks-wrap::-webkit-scrollbar-thumb:hover, .bids-wrap::-webkit-scrollbar-thumb:hover { background: var(--gray); }
+
+  /* кнопки скролла */
+  .scroll-btns { display: flex; gap: 1px; flex-shrink: 0; background: var(--border); }
+  .scroll-btn { flex: 1; background: var(--bg2); border: none; color: var(--gray); font-size: 11px; padding: 2px 0; cursor: pointer; font-family: 'Courier New', monospace; transition: color 0.15s, background 0.15s; }
+  .scroll-btn:hover { color: var(--blue); background: #1c2128; }
 
   .book-row { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 2px 8px; position: relative; border-bottom: 1px solid rgba(255,255,255,0.03); }
   .book-row:hover { background: rgba(255,255,255,0.04); }
@@ -172,6 +183,12 @@
     <div class="book-header"><div>Price (USDT)</div><div>Size</div><div>Total $</div></div>
     <div class="asks-wrap" id="asks-wrap">
       <div class="no-data"><div class="spinner"></div><span>Нажми Start</span></div>
+    </div>
+    <div class="scroll-btns">
+      <button class="scroll-btn" onclick="scrollBook('asks', -100)" title="Asks вверх">asks ▲</button>
+      <button class="scroll-btn" onclick="scrollBook('asks', 100)" title="Asks вниз">asks ▼</button>
+      <button class="scroll-btn" onclick="scrollBook('bids', -100)" title="Bids вверх">bids ▲</button>
+      <button class="scroll-btn" onclick="scrollBook('bids', 100)" title="Bids вниз">bids ▼</button>
     </div>
     <div class="spread-row">
       <span class="lbl">Spread:</span><span class="sp" id="sp-val">—</span>
@@ -647,6 +664,12 @@ function setArb(id,a,b) {
 function setDot(n,st) {
   const el=document.getElementById('d-'+n); if(!el)return;
   el.className='dot'+(st?' '+st:'');
+}
+
+// ── SCROLL BOOK ──
+function scrollBook(side, px) {
+  const el = document.getElementById(side === 'asks' ? 'asks-wrap' : 'bids-wrap');
+  el.scrollBy({ top: px, behavior: 'smooth' });
 }
 
 // ── TABS ──

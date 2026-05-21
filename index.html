@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGG Order Book</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --border: #30363d;
+    --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+    --yellow: #e3b341; --gray: #8b949e; --text: #e6edf3;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; font-size: 12px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .logo { color: var(--blue); font-size: 13px; font-weight: bold; letter-spacing: 1px; }
+
+  .btn { padding: 4px 14px; border-radius: 4px; border: none; font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; cursor: pointer; }
+  .btn-go { background: #238636; color: white; }
+  .btn-stop { background: #da3633; color: white; display: none; }
+
+  .dots { display: flex; gap: 10px; margin-left: auto; align-items: center; }
+  .dot-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--gray); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .dot.ok { background: var(--green); }
+  .dot.err { background: var(--red); }
+  .dot.loading { background: var(--yellow); animation: blink 0.6s infinite; }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
+
+  .refresh { font-size: 10px; color: var(--gray); margin-left: 8px; }
+
+  .main { flex: 1; display: flex; overflow: hidden; gap: 1px; background: var(--border); }
+
+  /* LEFT: order book */
+  .book-panel { background: var(--bg); display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .panel-title { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 5px 10px; font-size: 11px; color: var(--gray); display: flex; justify-content: space-between; flex-shrink: 0; }
+  .book-header { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 4px 8px; background: var(--bg2); border-bottom: 1px solid #21262d; color: var(--gray); font-size: 10px; flex-shrink: 0; }
+  .book-header div:nth-child(2) { text-align: center; }
+  .book-header div:last-child { text-align: right; }
+
+  .asks-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+  .bids-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  .book-row { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 2px 8px; position: relative; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .book-row:hover { background: rgba(255,255,255,0.04); }
+  .bar { position: absolute; top:0; bottom:0; right:0; opacity: 0.12; transition: width 0.3s; }
+  .ask-row .bar { background: var(--red); }
+  .bid-row .bar { background: var(--green); }
+  .ask-p { color: var(--red); font-weight: bold; position: relative; z-index:1; }
+  .bid-p { color: var(--green); font-weight: bold; position: relative; z-index:1; }
+  .sz { text-align: center; position: relative; z-index:1; }
+  .tot { text-align: right; color: var(--gray); font-size: 10px; position: relative; z-index:1; }
+
+  .spread-row { display: flex; justify-content: center; gap: 16px; padding: 4px 8px; background: var(--bg2); border-top: 1px solid #21262d; border-bottom: 1px solid #21262d; flex-shrink: 0; }
+  .spread-row .lbl { color: var(--gray); font-size: 10px; }
+  .spread-row .sp { color: var(--yellow); font-size: 12px; font-weight: bold; }
+  .spread-row .mid { color: var(--blue); font-size: 13px; font-weight: bold; }
+
+  /* RIGHT panel */
+  .right { background: var(--bg); width: 220px; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; }
+
+  .card { padding: 10px; border-bottom: 1px solid var(--border); }
+  .card-title { font-size: 10px; color: var(--gray); margin-bottom: 8px; letter-spacing: 1px; }
+
+  .imb-bar-wrap { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+  .imb-fill { height: 100%; background: linear-gradient(90deg, var(--green), #1a7431); border-radius: 4px; transition: width 0.4s; }
+  .imb-nums { display: flex; justify-content: space-between; font-size: 10px; }
+  .imb-b { color: var(--green); font-weight: bold; }
+  .imb-a { color: var(--red); font-weight: bold; }
+
+  .ex-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #21262d; }
+  .ex-row:last-child { border: none; }
+  .ex-name { color: var(--gray); font-size: 11px; min-width: 60px; }
+  .ex-price { color: var(--text); font-size: 11px; font-weight: bold; }
+  .ex-off { font-size: 10px; padding: 1px 4px; border-radius: 3px; }
+  .off-p { background: rgba(63,185,80,0.15); color: var(--green); }
+  .off-n { background: rgba(248,81,73,0.15); color: var(--red); }
+  .off-z { color: var(--gray); }
+
+  .arb-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #21262d; font-size: 11px; }
+  .arb-row:last-child { border: none; }
+  .arb-pair { color: var(--gray); }
+  .arb-val { color: var(--yellow); }
+  .arb-val.hot { color: var(--red); font-weight: bold; animation: flash 0.5s ease; }
+  @keyframes flash { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+  .footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 3px 10px; font-size: 10px; color: var(--gray); display: flex; gap: 16px; flex-shrink: 0; }
+  .footer span { color: var(--text); }
+
+  .no-data { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: var(--gray); gap: 8px; }
+  .spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* SEARCH WRAPPER */
+  .search-wrap { position: relative; display: flex; align-items: center; }
+  .symbol-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 28px 4px 8px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; width: 120px; text-transform: uppercase; outline: none; transition: border-color 0.2s; }
+  .symbol-input:focus { border-color: var(--blue); }
+  .search-icon { position: absolute; right: 7px; color: var(--gray); font-size: 12px; pointer-events: none; }
+
+  /* AUTOCOMPLETE DROPDOWN */
+  .autocomplete { position: absolute; top: calc(100% + 4px); left: 0; width: 180px; background: var(--bg2); border: 1px solid var(--blue); border-radius: 6px; z-index: 999; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: none; }
+  .autocomplete.open { display: block; }
+  .ac-item { padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid #21262d; transition: background 0.15s; }
+  .ac-item:last-child { border: none; }
+  .ac-item:hover, .ac-item.active { background: rgba(88,166,255,0.12); }
+  .ac-sym { color: var(--text); font-size: 12px; font-weight: bold; }
+  .ac-tag { font-size: 9px; color: var(--gray); background: #21262d; padding: 1px 5px; border-radius: 3px; }
+
+  /* REFRESH BUTTON */
+  .btn-refresh { background: #21262d; color: var(--blue); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; font-size: 13px; cursor: pointer; transition: background 0.15s, transform 0.2s; line-height: 1; }
+  .btn-refresh:hover { background: #30363d; }
+  .btn-refresh.spin { animation: spin 0.5s linear; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">⬡ AGG ORDER BOOK</span>
+  <div class="search-wrap" id="searchWrap">
+    <input class="symbol-input" id="symInput" value="BTCUSDT" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Поиск…">
+    <span class="search-icon">🔍</span>
+    <div class="autocomplete" id="acDropdown"></div>
+  </div>
+  <button class="btn-refresh" id="refreshBtn" title="Обновить" onclick="manualRefresh()">⟳</button>
+  <select id="groupSelect" style="background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:4px 8px;border-radius:4px;font-family:'Courier New',monospace;font-size:12px;cursor:pointer;">
+    <option value="0.01">0.01</option>
+    <option value="0.1" selected>0.1</option>
+    <option value="1">1</option>
+    <option value="5">5</option>
+    <option value="10">10</option>
+    <option value="50">50</option>
+    <option value="100">100</option>
+    <option value="500">500</option>
+  </select>
+  <button class="btn btn-go" id="goBtn" onclick="startFetching()">▶ Start</button>
+  <button class="btn btn-stop" id="stopBtn" onclick="stopFetching()">■ Stop</button>
+  <div class="dots">
+    <div class="dot-item"><div class="dot" id="d-bn"></div>Binance.US</div>
+    <div class="dot-item"><div class="dot" id="d-bb"></div>Bybit</div>
+    <div class="dot-item"><div class="dot" id="d-okx"></div>OKX</div>
+    <div class="dot-item"><div class="dot" id="d-kr"></div>Kraken</div>
+  </div>
+  <span class="refresh" id="refreshInfo">—</span>
+</div>
+
+<div class="main">
+  <!-- ORDER BOOK -->
+  <div class="book-panel">
+    <div class="panel-title">Aggregated Order Book <span id="updCount">0 upd</span></div>
+    <div class="book-header"><div>Price (USDT)</div><div>Size</div><div>Total $</div></div>
+    <div class="asks-wrap" id="asks-wrap">
+      <div class="no-data"><div class="spinner"></div><span>Нажми Start</span></div>
+    </div>
+    <div class="spread-row">
+      <span class="lbl">Spread:</span><span class="sp" id="sp-val">—</span>
+      <span class="lbl">Mid:</span><span class="mid" id="mid-val">—</span>
+    </div>
+    <div class="bids-wrap" id="bids-wrap"></div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="card">
+      <div class="card-title">BID / ASK IMBALANCE</div>
+      <div class="imb-bar-wrap"><div class="imb-fill" id="imb-fill" style="width:50%"></div></div>
+      <div class="imb-nums"><span class="imb-b" id="imb-b">Bid 50%</span><span class="imb-a" id="imb-a">Ask 50%</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">EXCHANGE MID PRICES</div>
+      <div class="ex-row"><span class="ex-name">Binance.US</span><span class="ex-price" id="px-bn">—</span><span class="ex-off off-z" id="off-bn">±0</span></div>
+      <div class="ex-row"><span class="ex-name">Bybit</span><span class="ex-price" id="px-bb">—</span><span class="ex-off off-z" id="off-bb">±0</span></div>
+      <div class="ex-row"><span class="ex-name">OKX</span><span class="ex-price" id="px-okx">—</span><span class="ex-off off-z" id="off-okx">±0</span></div>
+      <div class="ex-row"><span class="ex-name">Kraken</span><span class="ex-price" id="px-kr">—</span><span class="ex-off off-z" id="off-kr">±0</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">ARBITRAGE SPREAD</div>
+      <div class="arb-row"><span class="arb-pair">BN ↔ BB</span><span class="arb-val" id="arb-bn-bb">—</span></div>
+      <div class="arb-row"><span class="arb-pair">BN ↔ OKX</span><span class="arb-val" id="arb-bn-okx">—</span></div>
+      <div class="arb-row"><span class="arb-pair">BB ↔ OKX</span><span class="arb-val" id="arb-bb-okx">—</span></div>
+      <div class="arb-row"><span class="arb-pair">BN ↔ KR</span><span class="arb-val" id="arb-bn-kr">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Binance: <span id="ft-bn">—</span> | Bybit: <span id="ft-bb">—</span> | OKX: <span id="ft-okx">—</span> | Kraken: <span id="ft-kr">—</span> | Updates: <span id="ft-upd">0</span>
+</div>
+
+<script>
+// ── STATE ──
+const ex = { bn:{bids:[],asks:[],mid:null}, bb:{bids:[],asks:[],mid:null}, okx:{bids:[],asks:[],mid:null}, kr:{bids:[],asks:[],mid:null} };
+let timer = null, totalUpd = 0;
+const DEPTH = 50, ARB_HOT = 3;
+
+// CORS прокси — используем несколько как fallback
+const PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+];
+
+async function proxyFetch(url) {
+  for (const proxy of PROXIES) {
+    try {
+      const r = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(5000) });
+      if (r.ok) return await r.json();
+    } catch(e) { continue; }
+  }
+  throw new Error('All proxies failed');
+}
+
+// ── START/STOP ──
+function startFetching() {
+  stopFetching();
+  document.getElementById('goBtn').style.display = 'none';
+  document.getElementById('stopBtn').style.display = '';
+  fetchAll();
+  timer = setInterval(fetchAll, 2000);
+}
+function stopFetching() {
+  if (timer) clearInterval(timer);
+  timer = null;
+  document.getElementById('goBtn').style.display = '';
+  document.getElementById('stopBtn').style.display = 'none';
+  ['bn','bb','okx','kr'].forEach(n => setDot(n,''));
+}
+
+// ── FETCH ALL ──
+async function fetchAll() {
+  const sym = document.getElementById('symInput').value.trim().toUpperCase() || 'BTCUSDT';
+  document.getElementById('refreshInfo').textContent = '⟳ loading...';
+  await Promise.allSettled([fetchBinance(sym), fetchBybit(sym), fetchOKX(sym), fetchKraken(sym)]);
+  totalUpd++;
+  document.getElementById('ft-upd').textContent = totalUpd;
+  document.getElementById('updCount').textContent = totalUpd + ' upd';
+  document.getElementById('refreshInfo').textContent = '✓ ' + new Date().toLocaleTimeString();
+  render();
+}
+
+// ── BINANCE (через прокси) ──
+async function fetchBinance(sym) {
+  setDot('bn','loading');
+  try {
+    // Binance.US for American users
+    const url = `https://api.binance.us/api/v3/depth?symbol=${sym}&limit=100`;
+    const d = await proxyFetch(url);
+    if (d.bids) {
+      ex.bn.bids = d.bids.map(([p,s])=>[+p,+s]);
+      ex.bn.asks = d.asks.map(([p,s])=>[+p,+s]);
+      calcMid('bn');
+      setDot('bn','ok');
+      document.getElementById('ft-bn').textContent = ex.bn.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('bn','err'); document.getElementById('ft-bn').textContent = 'err'; }
+}
+
+// ── BYBIT (через прокси) ──
+async function fetchBybit(sym) {
+  setDot('bb','loading');
+  try {
+    // Bybit requires direct fetch with proper headers
+    const url = `https://api.bybit.com/v5/market/orderbook?category=spot&symbol=${sym}&limit=200`;
+    const urlLinear = `https://api.bybit.com/v5/market/orderbook?category=linear&symbol=${sym}&limit=200`;
+    let d;
+    try {
+      // Try spot first, then linear (futures)
+      let r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      d = await r.json();
+      if (!d.result || !d.result.b?.length) {
+        r = await fetch(urlLinear, { signal: AbortSignal.timeout(5000) });
+        d = await r.json();
+      }
+    } catch {
+      try { d = await proxyFetch(url); } catch { d = await proxyFetch(urlLinear); }
+    }
+    if (d.result) {
+      ex.bb.bids = d.result.b.map(([p,s])=>[+p,+s]);
+      ex.bb.asks = d.result.a.map(([p,s])=>[+p,+s]);
+      calcMid('bb');
+      setDot('bb','ok');
+      document.getElementById('ft-bb').textContent = ex.bb.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('bb','err'); document.getElementById('ft-bb').textContent = 'err'; }
+}
+
+// ── OKX (прямой запрос — обычно работает) ──
+async function fetchOKX(sym) {
+  setDot('okx','loading');
+  try {
+    const okxSym = sym.replace('USDT','-USDT');
+    // Пробуем сначала напрямую, потом через прокси
+    let d;
+    try {
+      const r = await fetch(`https://www.okx.com/api/v5/market/books?instId=${okxSym}&sz=400`, { signal: AbortSignal.timeout(4000) });
+      d = await r.json();
+    } catch {
+      d = await proxyFetch(`https://www.okx.com/api/v5/market/books?instId=${okxSym}&sz=400`);
+    }
+    if (d.data?.[0]) {
+      ex.okx.bids = d.data[0].bids.map(([p,s])=>[+p,+s]);
+      ex.okx.asks = d.data[0].asks.map(([p,s])=>[+p,+s]);
+      calcMid('okx');
+      setDot('okx','ok');
+      document.getElementById('ft-okx').textContent = ex.okx.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('okx','err'); document.getElementById('ft-okx').textContent = 'err'; }
+}
+
+// ── KRAKEN (прямой запрос) ──
+async function fetchKraken(sym) {
+  setDot('kr','loading');
+  try {
+    let ks = sym === 'BTCUSDT' ? 'XBTUSD' : sym === 'ETHUSDT' ? 'ETHUSD' : sym.replace('USDT','USD');
+    let d;
+    try {
+      const r = await fetch(`https://api.kraken.com/0/public/Depth?pair=${ks}&count=500`, { signal: AbortSignal.timeout(4000) });
+      d = await r.json();
+    } catch {
+      d = await proxyFetch(`https://api.kraken.com/0/public/Depth?pair=${ks}&count=500`);
+    }
+    if (d.result) {
+      const key = Object.keys(d.result)[0];
+      ex.kr.bids = d.result[key].bids.map(([p,s])=>[+p,+s]);
+      ex.kr.asks = d.result[key].asks.map(([p,s])=>[+p,+s]);
+      calcMid('kr');
+      setDot('kr','ok');
+      document.getElementById('ft-kr').textContent = ex.kr.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('kr','err'); document.getElementById('ft-kr').textContent = 'err'; }
+}
+
+// ── MID / GLOBAL MID ──
+function calcMid(n) {
+  const e = ex[n];
+  if (e.bids.length && e.asks.length) e.mid = (e.bids[0][0] + e.asks[0][0]) / 2;
+}
+function globalMid() {
+  const m = ['bn','bb','okx','kr'].map(n=>ex[n].mid).filter(Boolean);
+  return m.length ? m.reduce((a,b)=>a+b,0)/m.length : null;
+}
+
+// ── AGGREGATE with grouping ──
+function getGroupSize() {
+  return parseFloat(document.getElementById('groupSelect').value) || 0.1;
+}
+
+function groupPrice(price, groupSize, isBid) {
+  if (isBid) {
+    return Math.floor(price / groupSize) * groupSize;
+  } else {
+    return Math.ceil(price / groupSize) * groupSize;
+  }
+}
+
+function aggregate() {
+  const gMid = globalMid();
+  if (!gMid) return {bids:[],asks:[]};
+  const groupSize = getGroupSize();
+  const aggB={}, aggA={};
+  ['bn','bb','okx','kr'].forEach(n => {
+    const e = ex[n];
+    if (!e.mid) return;
+    const off = gMid - e.mid;
+    e.bids.forEach(([p,s]) => {
+      const adjP = p + off;
+      const key = groupPrice(adjP, groupSize, true).toFixed(10).replace(/\.?0+$/, '');
+      aggB[key] = (aggB[key]||0) + s;
+    });
+    e.asks.forEach(([p,s]) => {
+      const adjP = p + off;
+      const key = groupPrice(adjP, groupSize, false).toFixed(10).replace(/\.?0+$/, '');
+      aggA[key] = (aggA[key]||0) + s;
+    });
+  });
+  const bids = Object.entries(aggB).map(([p,s])=>[+p,s]).sort((a,b)=>b[0]-a[0]).slice(0,DEPTH);
+  const asks = Object.entries(aggA).map(([p,s])=>[+p,s]).sort((a,b)=>a[0]-b[0]).slice(0,DEPTH);
+  return {bids,asks};
+}
+
+// ── FORMAT PRICE ──
+function formatPrice(p) {
+  const g = getGroupSize();
+  if (g >= 100) return p.toFixed(0);
+  if (g >= 10) return p.toFixed(0);
+  if (g >= 1) return p.toFixed(1);
+  if (g >= 0.1) return p.toFixed(1);
+  if (g >= 0.01) return p.toFixed(2);
+  return p.toFixed(3);
+}
+
+// ── RENDER ──
+function render() {
+  const {bids,asks} = aggregate();
+  if (!bids.length && !asks.length) return;
+  const maxSz = Math.max(...[...bids,...asks].map(r=>r[1]), 1);
+
+  document.getElementById('asks-wrap').innerHTML = [...asks].reverse().map(([p,s])=>{
+    const bw=(s/maxSz*100).toFixed(1);
+    return `<div class="book-row ask-row">
+      <div class="ask-p">${formatPrice(p)}</div><div class="sz">${s.toFixed(4)}</div>
+      <div class="tot">$${Math.round(p*s).toLocaleString()}</div>
+      <div class="bar" style="width:${bw}%"></div></div>`;
+  }).join('');
+
+  document.getElementById('bids-wrap').innerHTML = bids.map(([p,s])=>{
+    const bw=(s/maxSz*100).toFixed(1);
+    return `<div class="book-row bid-row">
+      <div class="bid-p">${formatPrice(p)}</div><div class="sz">${s.toFixed(4)}</div>
+      <div class="tot">$${Math.round(p*s).toLocaleString()}</div>
+      <div class="bar" style="width:${bw}%"></div></div>`;
+  }).join('');
+
+  if (asks.length && bids.length) {
+    document.getElementById('sp-val').textContent = '$'+(asks[0][0]-bids[0][0]).toFixed(2);
+    document.getElementById('mid-val').textContent = '$'+formatPrice((asks[0][0]+bids[0][0])/2);
+  }
+
+  // Imbalance
+  const bt=bids.reduce((s,r)=>s+r[1],0), at=asks.reduce((s,r)=>s+r[1],0), tt=bt+at;
+  const bp=(tt>0?(bt/tt*100):50).toFixed(1);
+  document.getElementById('imb-fill').style.width=bp+'%';
+  document.getElementById('imb-b').textContent='Bid '+bp+'%';
+  document.getElementById('imb-a').textContent='Ask '+(100-bp).toFixed(1)+'%';
+
+  // Exchange prices
+  const gMid=globalMid();
+  [{id:'bn'},{id:'bb'},{id:'okx'},{id:'kr'}].forEach(({id})=>{
+    const mid=ex[id].mid;
+    if (!mid) return;
+    document.getElementById('px-'+id).textContent=mid.toFixed(1);
+    if (gMid) {
+      const diff=(mid-gMid).toFixed(2);
+      const el=document.getElementById('off-'+id);
+      el.textContent=(diff>=0?'+':'')+diff;
+      el.className='ex-off '+(diff>0?'off-p':diff<0?'off-n':'off-z');
+    }
+  });
+
+  // Arb
+  setArb('arb-bn-bb',  ex.bn.mid,  ex.bb.mid);
+  setArb('arb-bn-okx', ex.bn.mid,  ex.okx.mid);
+  setArb('arb-bb-okx', ex.bb.mid,  ex.okx.mid);
+  setArb('arb-bn-kr',  ex.bn.mid,  ex.kr.mid);
+}
+
+function setArb(id,a,b) {
+  const el=document.getElementById(id); if(!el)return;
+  if (!a||!b){el.textContent='—';return;}
+  const d=Math.abs(a-b).toFixed(2);
+  el.textContent='$'+d;
+  el.className='arb-val'+(+d>=ARB_HOT?' hot':'');
+}
+function setDot(n,st) {
+  const el=document.getElementById('d-'+n); if(!el)return;
+  el.className='dot'+(st?' '+st:'');
+}
+
+// ── AUTOCOMPLETE ──
+const COINS = [
+  {s:'BTCUSDT', t:'BTC'}, {s:'ETHUSDT', t:'ETH'}, {s:'SOLUSDT', t:'SOL'},
+  {s:'BNBUSDT', t:'BNB'}, {s:'XRPUSDT', t:'XRP'}, {s:'ADAUSDT', t:'ADA'},
+  {s:'DOGEUSDT', t:'DOGE'}, {s:'AVAXUSDT', t:'AVAX'}, {s:'DOTUSDT', t:'DOT'},
+  {s:'MATICUSDT', t:'MATIC'}, {s:'LINKUSDT', t:'LINK'}, {s:'LTCUSDT', t:'LTC'},
+  {s:'UNIUSDT', t:'UNI'}, {s:'ATOMUSDT', t:'ATOM'}, {s:'ETCUSDT', t:'ETC'},
+  {s:'XLMUSDT', t:'XLM'}, {s:'NEARUSDT', t:'NEAR'}, {s:'ALGOUSDT', t:'ALGO'},
+  {s:'FILUSDT', t:'FIL'}, {s:'AAVEUSDT', t:'AAVE'}, {s:'APTUSDT', t:'APT'},
+  {s:'ARBUSDT', t:'ARB'}, {s:'OPUSDT', t:'OP'}, {s:'SHIBUSDT', t:'SHIB'},
+  {s:'TRXUSDT', t:'TRX'}, {s:'SUIUSDT', t:'SUI'}, {s:'INJUSDT', t:'INJ'},
+  {s:'LDOUSDT', t:'LDO'}, {s:'MKRUSDT', t:'MKR'}, {s:'TONUSDT', t:'TON'},
+  {s:'WBTCUSDT', t:'WBTC'}, {s:'PEPEUSDT', t:'PEPE'}, {s:'FLOKIUSDT', t:'FLOKI'},
+  {s:'FETUSDT', t:'FET'}, {s:'RENDERUSDT', t:'RNDR'}, {s:'IMXUSDT', t:'IMX'},
+  {s:'GRTUSDT', t:'GRT'}, {s:'SANDUSDT', t:'SAND'}, {s:'MANAUSDT', t:'MANA'},
+  {s:'AXSUSDT', t:'AXS'}, {s:'FTMUSDT', t:'FTM'}, {s:'HBARUSDT', t:'HBAR'},
+  {s:'EGLDUSDT', t:'EGLD'}, {s:'FLOWUSDT', t:'FLOW'}, {s:'ICPUSDT', t:'ICP'},
+  {s:'APEUSDT', t:'APE'}, {s:'QNTUSDT', t:'QNT'}, {s:'XMRUSDT', t:'XMR'},
+  {s:'ZECUSDT', t:'ZEC'}, {s:'DASHUSDT', t:'DASH'}, {s:'IOTAUSDT', t:'IOTA'},
+];
+
+let acActive = -1;
+
+const acInput = document.getElementById('symInput');
+const acDrop = document.getElementById('acDropdown');
+
+function showAutocomplete(val) {
+  const q = val.toUpperCase().replace('USDT','');
+  if (!q) { hideAutocomplete(); return; }
+  const matches = COINS.filter(c => c.t.startsWith(q) || c.s.startsWith(q)).slice(0, 8);
+  if (!matches.length) { hideAutocomplete(); return; }
+  acActive = -1;
+  acDrop.innerHTML = matches.map((c,i) =>
+    `<div class="ac-item" data-sym="${c.s}" onmousedown="selectCoin('${c.s}')">
+      <span class="ac-sym">${c.t}</span><span class="ac-tag">USDT</span>
+    </div>`
+  ).join('');
+  acDrop.classList.add('open');
+}
+
+function hideAutocomplete() {
+  acDrop.classList.remove('open');
+  acActive = -1;
+}
+
+function selectCoin(sym) {
+  acInput.value = sym;
+  hideAutocomplete();
+  startFetching();
+}
+
+acInput.addEventListener('input', e => showAutocomplete(e.target.value));
+acInput.addEventListener('focus', e => showAutocomplete(e.target.value));
+acInput.addEventListener('blur', () => setTimeout(hideAutocomplete, 150));
+
+acInput.addEventListener('keydown', e => {
+  const items = acDrop.querySelectorAll('.ac-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acActive = Math.min(acActive + 1, items.length - 1);
+    items.forEach((el,i) => el.classList.toggle('active', i === acActive));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acActive = Math.max(acActive - 1, -1);
+    items.forEach((el,i) => el.classList.toggle('active', i === acActive));
+  } else if (e.key === 'Enter') {
+    if (acActive >= 0 && items[acActive]) {
+      selectCoin(items[acActive].dataset.sym);
+    } else {
+      hideAutocomplete();
+      startFetching();
+    }
+  } else if (e.key === 'Escape') {
+    hideAutocomplete();
+  }
+});
+
+// ── MANUAL REFRESH ──
+function manualRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spin');
+  setTimeout(() => btn.classList.remove('spin'), 500);
+  fetchAll();
+}
+
+document.getElementById('symInput').addEventListener('keydown',e=>{if(e.key==='Enter')startFetching();});
+</script>
+</body>
+</html>

@@ -132,6 +132,7 @@
 
 <div class="header">
   <span class="logo">⬡ AGG ORDER BOOK</span>
+  <span style="font-size:10px;color:var(--gray);background:#21262d;padding:2px 7px;border-radius:10px;" id="coinCount">загрузка…</span>
   <div class="search-wrap" id="searchWrap">
     <input class="symbol-input" id="symInput" value="BTCUSDT" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Поиск…">
     <span class="search-icon">🔍</span>
@@ -159,6 +160,7 @@
     <div class="dot-item"><div class="dot" id="d-kr"></div>Kraken</div>
     <div class="dot-item"><div class="dot" id="d-gt"></div>Gate</div>
     <div class="dot-item"><div class="dot" id="d-mx"></div>MEXC</div>
+    <div class="dot-item"><div class="dot" id="d-hl"></div>HyperLiquid</div>
   </div>
   <span class="refresh" id="refreshInfo">—</span>
 </div>
@@ -198,6 +200,7 @@
         <div class="ex-row"><span class="ex-name">Kraken</span><span class="ex-price" id="px-kr">—</span><span class="ex-off off-z" id="off-kr">±0</span></div>
         <div class="ex-row"><span class="ex-name">Gate.io</span><span class="ex-price" id="px-gt">—</span><span class="ex-off off-z" id="off-gt">±0</span></div>
         <div class="ex-row"><span class="ex-name">MEXC</span><span class="ex-price" id="px-mx">—</span><span class="ex-off off-z" id="off-mx">±0</span></div>
+        <div class="ex-row"><span class="ex-name" style="color:#7c6af5;">HyperLiquid</span><span class="ex-price" id="px-hl">—</span><span class="ex-off off-z" id="off-hl">±0</span></div>
       </div>
       <div class="card">
         <div class="card-title">ARBITRAGE SPREAD</div>
@@ -207,6 +210,8 @@
         <div class="arb-row"><span class="arb-pair">BN ↔ OKX</span><span class="arb-val" id="arb-bn-okx">—</span></div>
         <div class="arb-row"><span class="arb-pair">CB ↔ KR</span><span class="arb-val" id="arb-cb-kr">—</span></div>
         <div class="arb-row"><span class="arb-pair">GT ↔ MX</span><span class="arb-val" id="arb-gt-mx">—</span></div>
+        <div class="arb-row"><span class="arb-pair" style="color:#7c6af5;">HL ↔ BNC</span><span class="arb-val" id="arb-hl-bnc">—</span></div>
+        <div class="arb-row"><span class="arb-pair" style="color:#7c6af5;">HL ↔ OKX</span><span class="arb-val" id="arb-hl-okx">—</span></div>
       </div>
     </div>
 
@@ -230,12 +235,12 @@
 </div>
 
 <div class="footer">
-  BN.US: <span id="ft-bn">—</span> | Binance: <span id="ft-bnc">—</span> | Bybit: <span id="ft-bb">—</span> | Coinbase: <span id="ft-cb">—</span> | OKX: <span id="ft-okx">—</span> | Kraken: <span id="ft-kr">—</span> | Gate: <span id="ft-gt">—</span> | MEXC: <span id="ft-mx">—</span> | Upd: <span id="ft-upd">0</span>
+  BN.US: <span id="ft-bn">—</span> | Binance: <span id="ft-bnc">—</span> | Bybit: <span id="ft-bb">—</span> | Coinbase: <span id="ft-cb">—</span> | OKX: <span id="ft-okx">—</span> | Kraken: <span id="ft-kr">—</span> | Gate: <span id="ft-gt">—</span> | MEXC: <span id="ft-mx">—</span> | HL: <span id="ft-hl">—</span> | Upd: <span id="ft-upd">0</span>
 </div>
 
 <script>
 // ── STATE ──
-const ex = { bn:{bids:[],asks:[],mid:null}, bnc:{bids:[],asks:[],mid:null}, bb:{bids:[],asks:[],mid:null}, cb:{bids:[],asks:[],mid:null}, okx:{bids:[],asks:[],mid:null}, kr:{bids:[],asks:[],mid:null}, gt:{bids:[],asks:[],mid:null}, mx:{bids:[],asks:[],mid:null} };
+const ex = { bn:{bids:[],asks:[],mid:null}, bnc:{bids:[],asks:[],mid:null}, bb:{bids:[],asks:[],mid:null}, cb:{bids:[],asks:[],mid:null}, okx:{bids:[],asks:[],mid:null}, kr:{bids:[],asks:[],mid:null}, gt:{bids:[],asks:[],mid:null}, mx:{bids:[],asks:[],mid:null}, hl:{bids:[],asks:[],mid:null} };
 let timer = null, totalUpd = 0;
 const DEPTH = 50, ARB_HOT = 3;
 
@@ -268,14 +273,14 @@ function stopFetching() {
   timer = null;
   document.getElementById('goBtn').style.display = '';
   document.getElementById('stopBtn').style.display = 'none';
-  ['bn','bnc','bb','cb','okx','kr','gt','mx'].forEach(n => setDot(n,''));
+  ['bn','bnc','bb','cb','okx','kr','gt','mx','hl'].forEach(n => setDot(n,''));
 }
 
 // ── FETCH ALL ──
 async function fetchAll() {
   const sym = document.getElementById('symInput').value.trim().toUpperCase() || 'BTCUSDT';
   document.getElementById('refreshInfo').textContent = '⟳ loading...';
-  await Promise.allSettled([fetchBinanceUS(sym), fetchBinance(sym), fetchBybit(sym), fetchCoinbase(sym), fetchOKX(sym), fetchKraken(sym), fetchGate(sym), fetchMEXC(sym)]);
+  await Promise.allSettled([fetchBinanceUS(sym), fetchBinance(sym), fetchBybit(sym), fetchCoinbase(sym), fetchOKX(sym), fetchKraken(sym), fetchGate(sym), fetchMEXC(sym), fetchHyperLiquid(sym)]);
   totalUpd++;
   document.getElementById('ft-upd').textContent = totalUpd;
   document.getElementById('updCount').textContent = totalUpd + ' upd';
@@ -402,7 +407,40 @@ async function fetchMEXC(sym) {
   } catch(e) { setDot('mx','err'); document.getElementById('ft-mx').textContent = 'err'; }
 }
 
-// ── OKX (прямой запрос — обычно работает) ──
+// ── HYPERLIQUID (perps DEX — REST API) ──
+async function fetchHyperLiquid(sym) {
+  setDot('hl','loading');
+  try {
+    // HyperLiquid uses coin name without USDT, e.g. "BTC"
+    const coin = sym.replace('USDT','');
+    const body = JSON.stringify({ type: 'l2Book', coin });
+    let d;
+    try {
+      const r = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: AbortSignal.timeout(5000)
+      });
+      d = await r.json();
+    } catch {
+      // HyperLiquid POST через прокси — пробуем corsproxy
+      const r2 = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.hyperliquid.xyz/info'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: AbortSignal.timeout(6000)
+      });
+      d = await r2.json();
+    }
+    if (d?.levels?.length === 2) {
+      ex.hl.bids = d.levels[0].map(l => [+l.px, +l.sz]);
+      ex.hl.asks = d.levels[1].map(l => [+l.px, +l.sz]);
+      calcMid('hl'); setDot('hl','ok');
+      document.getElementById('ft-hl').textContent = ex.hl.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('hl','err'); document.getElementById('ft-hl').textContent = 'err'; }
+}
 async function fetchOKX(sym) {
   setDot('okx','loading');
   try {
@@ -454,7 +492,7 @@ function calcMid(n) {
   if (e.bids.length && e.asks.length) e.mid = (e.bids[0][0] + e.asks[0][0]) / 2;
 }
 function globalMid() {
-  const m = ['bn','bnc','bb','cb','okx','kr','gt','mx'].map(n=>ex[n].mid).filter(Boolean);
+  const m = ['bn','bnc','bb','cb','okx','kr','gt','mx','hl'].map(n=>ex[n].mid).filter(Boolean);
   return m.length ? m.reduce((a,b)=>a+b,0)/m.length : null;
 }
 
@@ -473,7 +511,7 @@ function aggregate() {
   if (!gMid) return {bids:[],asks:[]};
   const groupSize = getGroupSize();
   const aggB={}, aggA={};
-  ['bn','bnc','bb','cb','okx','kr','gt','mx'].forEach(n => {
+  ['bn','bnc','bb','cb','okx','kr','gt','mx','hl'].forEach(n => {
     const e = ex[n];
     if (!e.mid) return;
     const off = gMid - e.mid;
@@ -540,7 +578,7 @@ function render() {
 
   // Exchange prices
   const gMid=globalMid();
-  [{id:'bn'},{id:'bnc'},{id:'bb'},{id:'cb'},{id:'okx'},{id:'kr'},{id:'gt'},{id:'mx'}].forEach(({id})=>{
+  [{id:'bn'},{id:'bnc'},{id:'bb'},{id:'cb'},{id:'okx'},{id:'kr'},{id:'gt'},{id:'mx'},{id:'hl'}].forEach(({id})=>{
     const mid=ex[id].mid;
     if (!mid) return;
     document.getElementById('px-'+id).textContent=mid.toFixed(1);
@@ -559,6 +597,8 @@ function render() {
   setArb('arb-bn-okx', ex.bn.mid,  ex.okx.mid);
   setArb('arb-cb-kr',  ex.cb.mid,  ex.kr.mid);
   setArb('arb-gt-mx',  ex.gt.mid,  ex.mx.mid);
+  setArb('arb-hl-bnc', ex.hl.mid,  ex.bnc.mid);
+  setArb('arb-hl-okx', ex.hl.mid,  ex.okx.mid);
 
   // Imbalance per-exchange
   const EX_LIST = [
@@ -570,6 +610,7 @@ function render() {
     {id:'kr',  label:'Kraken'},
     {id:'gt',  label:'Gate'},
     {id:'mx',  label:'MEXC'},
+    {id:'hl',  label:'HyperLiquid'},
   ];
   const imbRows = EX_LIST.map(({id, label}) => {
     const e = ex[id];
@@ -616,26 +657,44 @@ function switchTab(name) {
   event.target.classList.add('active');
 }
 
-// ── AUTOCOMPLETE ──
-const COINS = [
-  {s:'BTCUSDT', t:'BTC'}, {s:'ETHUSDT', t:'ETH'}, {s:'SOLUSDT', t:'SOL'},
-  {s:'BNBUSDT', t:'BNB'}, {s:'XRPUSDT', t:'XRP'}, {s:'ADAUSDT', t:'ADA'},
-  {s:'DOGEUSDT', t:'DOGE'}, {s:'AVAXUSDT', t:'AVAX'}, {s:'DOTUSDT', t:'DOT'},
-  {s:'MATICUSDT', t:'MATIC'}, {s:'LINKUSDT', t:'LINK'}, {s:'LTCUSDT', t:'LTC'},
-  {s:'UNIUSDT', t:'UNI'}, {s:'ATOMUSDT', t:'ATOM'}, {s:'ETCUSDT', t:'ETC'},
-  {s:'XLMUSDT', t:'XLM'}, {s:'NEARUSDT', t:'NEAR'}, {s:'ALGOUSDT', t:'ALGO'},
-  {s:'FILUSDT', t:'FIL'}, {s:'AAVEUSDT', t:'AAVE'}, {s:'APTUSDT', t:'APT'},
-  {s:'ARBUSDT', t:'ARB'}, {s:'OPUSDT', t:'OP'}, {s:'SHIBUSDT', t:'SHIB'},
-  {s:'TRXUSDT', t:'TRX'}, {s:'SUIUSDT', t:'SUI'}, {s:'INJUSDT', t:'INJ'},
-  {s:'LDOUSDT', t:'LDO'}, {s:'MKRUSDT', t:'MKR'}, {s:'TONUSDT', t:'TON'},
-  {s:'WBTCUSDT', t:'WBTC'}, {s:'PEPEUSDT', t:'PEPE'}, {s:'FLOKIUSDT', t:'FLOKI'},
-  {s:'FETUSDT', t:'FET'}, {s:'RENDERUSDT', t:'RNDR'}, {s:'IMXUSDT', t:'IMX'},
-  {s:'GRTUSDT', t:'GRT'}, {s:'SANDUSDT', t:'SAND'}, {s:'MANAUSDT', t:'MANA'},
-  {s:'AXSUSDT', t:'AXS'}, {s:'FTMUSDT', t:'FTM'}, {s:'HBARUSDT', t:'HBAR'},
-  {s:'EGLDUSDT', t:'EGLD'}, {s:'FLOWUSDT', t:'FLOW'}, {s:'ICPUSDT', t:'ICP'},
-  {s:'APEUSDT', t:'APE'}, {s:'QNTUSDT', t:'QNT'}, {s:'XMRUSDT', t:'XMR'},
-  {s:'ZECUSDT', t:'ZEC'}, {s:'DASHUSDT', t:'DASH'}, {s:'IOTAUSDT', t:'IOTA'},
+// ── AUTOCOMPLETE — динамическая загрузка с Binance ──
+let COINS = [
+  // Базовый список на случай если API недоступен
+  {s:'BTCUSDT',t:'BTC'},{s:'ETHUSDT',t:'ETH'},{s:'SOLUSDT',t:'SOL'},
+  {s:'BNBUSDT',t:'BNB'},{s:'XRPUSDT',t:'XRP'},{s:'ADAUSDT',t:'ADA'},
+  {s:'DOGEUSDT',t:'DOGE'},{s:'AVAXUSDT',t:'AVAX'},{s:'DOTUSDT',t:'DOT'},
+  {s:'LINKUSDT',t:'LINK'},{s:'LTCUSDT',t:'LTC'},{s:'UNIUSDT',t:'UNI'},
+  {s:'ATOMUSDT',t:'ATOM'},{s:'NEARUSDT',t:'NEAR'},{s:'ARBUSDT',t:'ARB'},
+  {s:'OPUSDT',t:'OP'},{s:'SHIBUSDT',t:'SHIB'},{s:'PEPEUSDT',t:'PEPE'},
+  {s:'SUIUSDT',t:'SUI'},{s:'TONUSDT',t:'TON'},{s:'INJUSDT',t:'INJ'},
 ];
+
+async function loadCoinsFromOKX() {
+  try {
+    let data;
+    try {
+      const r = await fetch('https://www.okx.com/api/v5/public/instruments?instType=SPOT', { signal: AbortSignal.timeout(6000) });
+      data = await r.json();
+    } catch {
+      const r2 = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://www.okx.com/api/v5/public/instruments?instType=SPOT'), { signal: AbortSignal.timeout(8000) });
+      data = await r2.json();
+    }
+    if (data.data?.length) {
+      const pairs = data.data
+        .filter(s => s.quoteCcy === 'USDT' && s.state === 'live')
+        .map(s => ({ s: s.baseCcy + 'USDT', t: s.baseCcy }))
+        .sort((a, b) => a.t.localeCompare(b.t));
+      if (pairs.length > 10) {
+        COINS = pairs;
+        document.getElementById('coinCount').textContent = `${pairs.length} пар`;
+      }
+    }
+  } catch(e) {
+    document.getElementById('coinCount').textContent = 'офлайн';
+  }
+}
+
+loadCoinsFromOKX();
 
 let acActive = -1;
 

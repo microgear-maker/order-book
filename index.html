@@ -92,7 +92,22 @@
   .spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* SEARCH WRAPPER */
+  /* TABS */
+  .tab-bar { display: flex; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab-btn { flex: 1; padding: 8px 4px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--gray); font-family: 'Courier New', monospace; font-size: 11px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-content { display: flex; flex-direction: column; overflow-y: auto; flex: 1; }
+  .tab-content.hidden { display: none; }
+
+  /* IMB per-exchange bars */
+  .imb-ex-row { padding: 5px 0; border-bottom: 1px solid #21262d; }
+  .imb-ex-row:last-child { border: none; }
+  .imb-ex-label { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
+  .imb-ex-name { color: var(--gray); }
+  .imb-ex-pct { color: var(--text); font-weight: bold; }
+  .imb-ex-bar { height: 5px; background: #21262d; border-radius: 3px; overflow: hidden; }
+  .imb-ex-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
   .search-wrap { position: relative; display: flex; align-items: center; }
   .symbol-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 28px 4px 8px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; width: 120px; text-transform: uppercase; outline: none; transition: border-color 0.2s; }
   .symbol-input:focus { border-color: var(--blue); }
@@ -136,10 +151,14 @@
   <button class="btn btn-go" id="goBtn" onclick="startFetching()">▶ Start</button>
   <button class="btn btn-stop" id="stopBtn" onclick="stopFetching()">■ Stop</button>
   <div class="dots">
-    <div class="dot-item"><div class="dot" id="d-bn"></div>Binance.US</div>
+    <div class="dot-item"><div class="dot" id="d-bn"></div>BN.US</div>
+    <div class="dot-item"><div class="dot" id="d-bnc"></div>Binance</div>
     <div class="dot-item"><div class="dot" id="d-bb"></div>Bybit</div>
+    <div class="dot-item"><div class="dot" id="d-cb"></div>Coinbase</div>
     <div class="dot-item"><div class="dot" id="d-okx"></div>OKX</div>
     <div class="dot-item"><div class="dot" id="d-kr"></div>Kraken</div>
+    <div class="dot-item"><div class="dot" id="d-gt"></div>Gate</div>
+    <div class="dot-item"><div class="dot" id="d-mx"></div>MEXC</div>
   </div>
   <span class="refresh" id="refreshInfo">—</span>
 </div>
@@ -161,35 +180,62 @@
 
   <!-- RIGHT -->
   <div class="right">
-    <div class="card">
-      <div class="card-title">BID / ASK IMBALANCE</div>
-      <div class="imb-bar-wrap"><div class="imb-fill" id="imb-fill" style="width:50%"></div></div>
-      <div class="imb-nums"><span class="imb-b" id="imb-b">Bid 50%</span><span class="imb-a" id="imb-a">Ask 50%</span></div>
+    <!-- TABS -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('prices')">📊 Цены</button>
+      <button class="tab-btn" onclick="switchTab('imbalance')">⚖️ Спрос</button>
     </div>
-    <div class="card">
-      <div class="card-title">EXCHANGE MID PRICES</div>
-      <div class="ex-row"><span class="ex-name">Binance.US</span><span class="ex-price" id="px-bn">—</span><span class="ex-off off-z" id="off-bn">±0</span></div>
-      <div class="ex-row"><span class="ex-name">Bybit</span><span class="ex-price" id="px-bb">—</span><span class="ex-off off-z" id="off-bb">±0</span></div>
-      <div class="ex-row"><span class="ex-name">OKX</span><span class="ex-price" id="px-okx">—</span><span class="ex-off off-z" id="off-okx">±0</span></div>
-      <div class="ex-row"><span class="ex-name">Kraken</span><span class="ex-price" id="px-kr">—</span><span class="ex-off off-z" id="off-kr">±0</span></div>
+
+    <!-- TAB: PRICES -->
+    <div class="tab-content" id="tab-prices">
+      <div class="card">
+        <div class="card-title">EXCHANGE MID PRICES</div>
+        <div class="ex-row"><span class="ex-name">BN.US</span><span class="ex-price" id="px-bn">—</span><span class="ex-off off-z" id="off-bn">±0</span></div>
+        <div class="ex-row"><span class="ex-name">Binance</span><span class="ex-price" id="px-bnc">—</span><span class="ex-off off-z" id="off-bnc">±0</span></div>
+        <div class="ex-row"><span class="ex-name">Bybit</span><span class="ex-price" id="px-bb">—</span><span class="ex-off off-z" id="off-bb">±0</span></div>
+        <div class="ex-row"><span class="ex-name">Coinbase</span><span class="ex-price" id="px-cb">—</span><span class="ex-off off-z" id="off-cb">±0</span></div>
+        <div class="ex-row"><span class="ex-name">OKX</span><span class="ex-price" id="px-okx">—</span><span class="ex-off off-z" id="off-okx">±0</span></div>
+        <div class="ex-row"><span class="ex-name">Kraken</span><span class="ex-price" id="px-kr">—</span><span class="ex-off off-z" id="off-kr">±0</span></div>
+        <div class="ex-row"><span class="ex-name">Gate.io</span><span class="ex-price" id="px-gt">—</span><span class="ex-off off-z" id="off-gt">±0</span></div>
+        <div class="ex-row"><span class="ex-name">MEXC</span><span class="ex-price" id="px-mx">—</span><span class="ex-off off-z" id="off-mx">±0</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">ARBITRAGE SPREAD</div>
+        <div class="arb-row"><span class="arb-pair">BN ↔ BNC</span><span class="arb-val" id="arb-bn-bnc">—</span></div>
+        <div class="arb-row"><span class="arb-pair">BNC ↔ BB</span><span class="arb-val" id="arb-bnc-bb">—</span></div>
+        <div class="arb-row"><span class="arb-pair">BN ↔ CB</span><span class="arb-val" id="arb-bn-cb">—</span></div>
+        <div class="arb-row"><span class="arb-pair">BN ↔ OKX</span><span class="arb-val" id="arb-bn-okx">—</span></div>
+        <div class="arb-row"><span class="arb-pair">CB ↔ KR</span><span class="arb-val" id="arb-cb-kr">—</span></div>
+        <div class="arb-row"><span class="arb-pair">GT ↔ MX</span><span class="arb-val" id="arb-gt-mx">—</span></div>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-title">ARBITRAGE SPREAD</div>
-      <div class="arb-row"><span class="arb-pair">BN ↔ BB</span><span class="arb-val" id="arb-bn-bb">—</span></div>
-      <div class="arb-row"><span class="arb-pair">BN ↔ OKX</span><span class="arb-val" id="arb-bn-okx">—</span></div>
-      <div class="arb-row"><span class="arb-pair">BB ↔ OKX</span><span class="arb-val" id="arb-bb-okx">—</span></div>
-      <div class="arb-row"><span class="arb-pair">BN ↔ KR</span><span class="arb-val" id="arb-bn-kr">—</span></div>
+
+    <!-- TAB: IMBALANCE -->
+    <div class="tab-content hidden" id="tab-imbalance">
+      <div class="card">
+        <div class="card-title">BID / ASK IMBALANCE</div>
+        <div class="imb-bar-wrap"><div class="imb-fill" id="imb-fill" style="width:50%"></div></div>
+        <div class="imb-nums"><span class="imb-b" id="imb-b">Bid 50%</span><span class="imb-a" id="imb-a">Ask 50%</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">BID DEPTH ПО БИРЖАМ</div>
+        <div id="imb-ex-rows"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">ДАВЛЕНИЕ</div>
+        <div style="padding:4px 0;font-size:11px;" id="imb-signal">—</div>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="footer">
-  Binance: <span id="ft-bn">—</span> | Bybit: <span id="ft-bb">—</span> | OKX: <span id="ft-okx">—</span> | Kraken: <span id="ft-kr">—</span> | Updates: <span id="ft-upd">0</span>
+  BN.US: <span id="ft-bn">—</span> | Binance: <span id="ft-bnc">—</span> | Bybit: <span id="ft-bb">—</span> | Coinbase: <span id="ft-cb">—</span> | OKX: <span id="ft-okx">—</span> | Kraken: <span id="ft-kr">—</span> | Gate: <span id="ft-gt">—</span> | MEXC: <span id="ft-mx">—</span> | Upd: <span id="ft-upd">0</span>
 </div>
 
 <script>
 // ── STATE ──
-const ex = { bn:{bids:[],asks:[],mid:null}, bb:{bids:[],asks:[],mid:null}, okx:{bids:[],asks:[],mid:null}, kr:{bids:[],asks:[],mid:null} };
+const ex = { bn:{bids:[],asks:[],mid:null}, bnc:{bids:[],asks:[],mid:null}, bb:{bids:[],asks:[],mid:null}, cb:{bids:[],asks:[],mid:null}, okx:{bids:[],asks:[],mid:null}, kr:{bids:[],asks:[],mid:null}, gt:{bids:[],asks:[],mid:null}, mx:{bids:[],asks:[],mid:null} };
 let timer = null, totalUpd = 0;
 const DEPTH = 50, ARB_HOT = 3;
 
@@ -222,14 +268,14 @@ function stopFetching() {
   timer = null;
   document.getElementById('goBtn').style.display = '';
   document.getElementById('stopBtn').style.display = 'none';
-  ['bn','bb','okx','kr'].forEach(n => setDot(n,''));
+  ['bn','bnc','bb','cb','okx','kr','gt','mx'].forEach(n => setDot(n,''));
 }
 
 // ── FETCH ALL ──
 async function fetchAll() {
   const sym = document.getElementById('symInput').value.trim().toUpperCase() || 'BTCUSDT';
   document.getElementById('refreshInfo').textContent = '⟳ loading...';
-  await Promise.allSettled([fetchBinance(sym), fetchBybit(sym), fetchOKX(sym), fetchKraken(sym)]);
+  await Promise.allSettled([fetchBinanceUS(sym), fetchBinance(sym), fetchBybit(sym), fetchCoinbase(sym), fetchOKX(sym), fetchKraken(sym), fetchGate(sym), fetchMEXC(sym)]);
   totalUpd++;
   document.getElementById('ft-upd').textContent = totalUpd;
   document.getElementById('updCount').textContent = totalUpd + ' upd';
@@ -237,50 +283,123 @@ async function fetchAll() {
   render();
 }
 
-// ── BINANCE (через прокси) ──
-async function fetchBinance(sym) {
+// ── BINANCE.US ──
+async function fetchBinanceUS(sym) {
   setDot('bn','loading');
   try {
-    // Binance.US for American users
     const url = `https://api.binance.us/api/v3/depth?symbol=${sym}&limit=100`;
     const d = await proxyFetch(url);
     if (d.bids) {
       ex.bn.bids = d.bids.map(([p,s])=>[+p,+s]);
       ex.bn.asks = d.asks.map(([p,s])=>[+p,+s]);
-      calcMid('bn');
-      setDot('bn','ok');
+      calcMid('bn'); setDot('bn','ok');
       document.getElementById('ft-bn').textContent = ex.bn.mid?.toFixed(1) || '—';
     } else throw new Error('no data');
   } catch(e) { setDot('bn','err'); document.getElementById('ft-bn').textContent = 'err'; }
 }
 
-// ── BYBIT (через прокси) ──
+// ── BINANCE GLOBAL ──
+async function fetchBinance(sym) {
+  setDot('bnc','loading');
+  try {
+    const url = `https://api.binance.com/api/v3/depth?symbol=${sym}&limit=100`;
+    let d;
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      d = await r.json();
+    } catch { d = await proxyFetch(url); }
+    if (d.bids) {
+      ex.bnc.bids = d.bids.map(([p,s])=>[+p,+s]);
+      ex.bnc.asks = d.asks.map(([p,s])=>[+p,+s]);
+      calcMid('bnc'); setDot('bnc','ok');
+      document.getElementById('ft-bnc').textContent = ex.bnc.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('bnc','err'); document.getElementById('ft-bnc').textContent = 'err'; }
+}
+
+// ── BYBIT ──
 async function fetchBybit(sym) {
   setDot('bb','loading');
   try {
-    // Bybit requires direct fetch with proper headers
     const url = `https://api.bybit.com/v5/market/orderbook?category=spot&symbol=${sym}&limit=200`;
-    const urlLinear = `https://api.bybit.com/v5/market/orderbook?category=linear&symbol=${sym}&limit=200`;
     let d;
     try {
-      // Try spot first, then linear (futures)
-      let r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
       d = await r.json();
-      if (!d.result || !d.result.b?.length) {
-        r = await fetch(urlLinear, { signal: AbortSignal.timeout(5000) });
-        d = await r.json();
-      }
-    } catch {
-      try { d = await proxyFetch(url); } catch { d = await proxyFetch(urlLinear); }
-    }
-    if (d.result) {
+    } catch { d = await proxyFetch(url); }
+    if (d.result?.b) {
       ex.bb.bids = d.result.b.map(([p,s])=>[+p,+s]);
       ex.bb.asks = d.result.a.map(([p,s])=>[+p,+s]);
-      calcMid('bb');
-      setDot('bb','ok');
+      calcMid('bb'); setDot('bb','ok');
       document.getElementById('ft-bb').textContent = ex.bb.mid?.toFixed(1) || '—';
     } else throw new Error('no data');
   } catch(e) { setDot('bb','err'); document.getElementById('ft-bb').textContent = 'err'; }
+}
+
+// ── COINBASE ──
+async function fetchCoinbase(sym) {
+  setDot('cb','loading');
+  try {
+    const base = sym.replace('USDT','');
+    const productId = `${base}-USD`;
+    let d;
+    try {
+      const r = await fetch(`https://api.exchange.coinbase.com/products/${productId}/book?level=2`, { signal: AbortSignal.timeout(5000) });
+      d = await r.json();
+    } catch {
+      d = await proxyFetch(`https://api.exchange.coinbase.com/products/${productId}/book?level=2`);
+    }
+    if (d.bids && d.asks) {
+      ex.cb.bids = d.bids.map(([p,s])=>[+p,+s]);
+      ex.cb.asks = d.asks.map(([p,s])=>[+p,+s]);
+      calcMid('cb');
+      setDot('cb','ok');
+      document.getElementById('ft-cb').textContent = ex.cb.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('cb','err'); document.getElementById('ft-cb').textContent = 'err'; }
+}
+
+// ── GATE.IO ──
+async function fetchGate(sym) {
+  setDot('gt','loading');
+  try {
+    const pair = sym.replace('USDT','_USDT');
+    let d;
+    try {
+      const r = await fetch(`https://api.gateio.ws/api/v4/spot/order_book?currency_pair=${pair}&limit=50`, { signal: AbortSignal.timeout(5000) });
+      d = await r.json();
+    } catch {
+      d = await proxyFetch(`https://api.gateio.ws/api/v4/spot/order_book?currency_pair=${pair}&limit=50`);
+    }
+    if (d.bids && d.asks) {
+      ex.gt.bids = d.bids.map(([p,s])=>[+p,+s]);
+      ex.gt.asks = d.asks.map(([p,s])=>[+p,+s]);
+      calcMid('gt');
+      setDot('gt','ok');
+      document.getElementById('ft-gt').textContent = ex.gt.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('gt','err'); document.getElementById('ft-gt').textContent = 'err'; }
+}
+
+// ── MEXC ──
+async function fetchMEXC(sym) {
+  setDot('mx','loading');
+  try {
+    let d;
+    try {
+      const r = await fetch(`https://api.mexc.com/api/v3/depth?symbol=${sym}&limit=50`, { signal: AbortSignal.timeout(5000) });
+      d = await r.json();
+    } catch {
+      d = await proxyFetch(`https://api.mexc.com/api/v3/depth?symbol=${sym}&limit=50`);
+    }
+    if (d.bids && d.asks) {
+      ex.mx.bids = d.bids.map(([p,s])=>[+p,+s]);
+      ex.mx.asks = d.asks.map(([p,s])=>[+p,+s]);
+      calcMid('mx');
+      setDot('mx','ok');
+      document.getElementById('ft-mx').textContent = ex.mx.mid?.toFixed(1) || '—';
+    } else throw new Error('no data');
+  } catch(e) { setDot('mx','err'); document.getElementById('ft-mx').textContent = 'err'; }
 }
 
 // ── OKX (прямой запрос — обычно работает) ──
@@ -335,7 +454,7 @@ function calcMid(n) {
   if (e.bids.length && e.asks.length) e.mid = (e.bids[0][0] + e.asks[0][0]) / 2;
 }
 function globalMid() {
-  const m = ['bn','bb','okx','kr'].map(n=>ex[n].mid).filter(Boolean);
+  const m = ['bn','bnc','bb','cb','okx','kr','gt','mx'].map(n=>ex[n].mid).filter(Boolean);
   return m.length ? m.reduce((a,b)=>a+b,0)/m.length : null;
 }
 
@@ -345,11 +464,8 @@ function getGroupSize() {
 }
 
 function groupPrice(price, groupSize, isBid) {
-  if (isBid) {
-    return Math.floor(price / groupSize) * groupSize;
-  } else {
-    return Math.ceil(price / groupSize) * groupSize;
-  }
+  if (isBid) return Math.floor(price / groupSize) * groupSize;
+  else return Math.ceil(price / groupSize) * groupSize;
 }
 
 function aggregate() {
@@ -357,7 +473,7 @@ function aggregate() {
   if (!gMid) return {bids:[],asks:[]};
   const groupSize = getGroupSize();
   const aggB={}, aggA={};
-  ['bn','bb','okx','kr'].forEach(n => {
+  ['bn','bnc','bb','cb','okx','kr','gt','mx'].forEach(n => {
     const e = ex[n];
     if (!e.mid) return;
     const off = gMid - e.mid;
@@ -424,7 +540,7 @@ function render() {
 
   // Exchange prices
   const gMid=globalMid();
-  [{id:'bn'},{id:'bb'},{id:'okx'},{id:'kr'}].forEach(({id})=>{
+  [{id:'bn'},{id:'bnc'},{id:'bb'},{id:'cb'},{id:'okx'},{id:'kr'},{id:'gt'},{id:'mx'}].forEach(({id})=>{
     const mid=ex[id].mid;
     if (!mid) return;
     document.getElementById('px-'+id).textContent=mid.toFixed(1);
@@ -437,10 +553,47 @@ function render() {
   });
 
   // Arb
-  setArb('arb-bn-bb',  ex.bn.mid,  ex.bb.mid);
+  setArb('arb-bn-bnc', ex.bn.mid,  ex.bnc.mid);
+  setArb('arb-bnc-bb', ex.bnc.mid, ex.bb.mid);
+  setArb('arb-bn-cb',  ex.bn.mid,  ex.cb.mid);
   setArb('arb-bn-okx', ex.bn.mid,  ex.okx.mid);
-  setArb('arb-bb-okx', ex.bb.mid,  ex.okx.mid);
-  setArb('arb-bn-kr',  ex.bn.mid,  ex.kr.mid);
+  setArb('arb-cb-kr',  ex.cb.mid,  ex.kr.mid);
+  setArb('arb-gt-mx',  ex.gt.mid,  ex.mx.mid);
+
+  // Imbalance per-exchange
+  const EX_LIST = [
+    {id:'bn',  label:'BN.US'},
+    {id:'bnc', label:'Binance'},
+    {id:'bb',  label:'Bybit'},
+    {id:'cb',  label:'Coinbase'},
+    {id:'okx', label:'OKX'},
+    {id:'kr',  label:'Kraken'},
+    {id:'gt',  label:'Gate'},
+    {id:'mx',  label:'MEXC'},
+  ];
+  const imbRows = EX_LIST.map(({id, label}) => {
+    const e = ex[id];
+    if (!e.bids.length || !e.asks.length) return '';
+    const b = e.bids.reduce((s,r)=>s+r[1],0);
+    const a = e.asks.reduce((s,r)=>s+r[1],0);
+    const t = b + a;
+    const pct = t > 0 ? (b/t*100) : 50;
+    const color = pct > 55 ? 'var(--green)' : pct < 45 ? 'var(--red)' : 'var(--yellow)';
+    return `<div class="imb-ex-row">
+      <div class="imb-ex-label"><span class="imb-ex-name">${label}</span><span class="imb-ex-pct" style="color:${color}">${pct.toFixed(1)}% bid</span></div>
+      <div class="imb-ex-bar"><div class="imb-ex-fill" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('imb-ex-rows').innerHTML = imbRows;
+
+  // Signal
+  const bpNum = parseFloat(bp);
+  const sigEl = document.getElementById('imb-signal');
+  if (bpNum > 60) { sigEl.style.color='var(--green)'; sigEl.textContent='🟢 Сильное давление покупателей'; }
+  else if (bpNum > 53) { sigEl.style.color='var(--green)'; sigEl.textContent='📈 Умеренный спрос'; }
+  else if (bpNum < 40) { sigEl.style.color='var(--red)'; sigEl.textContent='🔴 Сильное давление продавцов'; }
+  else if (bpNum < 47) { sigEl.style.color='var(--red)'; sigEl.textContent='📉 Умеренное предложение'; }
+  else { sigEl.style.color='var(--yellow)'; sigEl.textContent='⚖️ Рынок сбалансирован'; }
 }
 
 function setArb(id,a,b) {
@@ -453,6 +606,14 @@ function setArb(id,a,b) {
 function setDot(n,st) {
   const el=document.getElementById('d-'+n); if(!el)return;
   el.className='dot'+(st?' '+st:'');
+}
+
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  event.target.classList.add('active');
 }
 
 // ── AUTOCOMPLETE ──
